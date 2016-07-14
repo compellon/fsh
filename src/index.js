@@ -204,4 +204,4 @@ class FSH {
     }
 }
 
-module.exports = ezraFS;
+module.exports = FSH;

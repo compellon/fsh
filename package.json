@@ -22,11 +22,8 @@
   },
   "homepage": "https://github.com/ezra-quemuel/node-webhdfs#readme",
   "dependencies": {
-    "fs-extra": "^0.30.0",
     "lodash": "^4.13.1",
-    "request": "^2.72.0",
-    "rx": "^4.1.0",
-    "rx-node": "^1.0.2",
+    "restler": "^3.4.0",
     "urijs": "^1.18.1"
   }
 }

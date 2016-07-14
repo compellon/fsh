@@ -12,13 +12,8 @@ class NamedError extends Error {
 
 class HDFSError extends NamedError {
     constructor( { hdfsRemoteException = {} } ) {
-        let message = _.get( hdfsRemoteException, 'message' );
-        let name = _.get( hdfsRemoteException, 'exception', this.constructor.name );
-
-        if ( !message ) {
-            message = 'There was an error when interacting with HDFS';
-            name = this.constructor.name;
-        }
+        let message = _.get( hdfsRemoteException, 'message', 'There was an error when interacting with HDFS' );
+        let name = _.get( hdfsRemoteException, 'exception' );
 
         super( message, name );
     }
@@ -36,4 +31,4 @@ class ResponseError extends NamedError {
     }
 }
 
-exports.modules = {HDFSError, ValidationError};
+module.exports = {HDFSError, ValidationError, ResponseError};

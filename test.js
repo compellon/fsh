@@ -1,6 +1,6 @@
-const HDFS = require('./src/index.js');
+const FSH = require('./src/index.js');
 
-const fs = new HDFS({ user: 'root', port: 50070, useHDFS: true });
+const fs = new FSH({ user: 'root', port: 50070, useHDFS: true });
 
 fs.unlink( '/webhdfs', true, err => {
     if (err) throw err;

@@ -1,6 +1,6 @@
 {
-  "name": "node-webhdfs",
-  "version": "1.0.0",
+  "name": "fsh",
+  "version": "0.0.1",
   "description": "Library to interact with the WEBHDFS REST API",
   "main": "src/index.js",
   "scripts": {
@@ -18,9 +18,9 @@
   "author": "Ezra Quemuel",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ezra-quemuel/node-webhdfs/issues"
+    "url": "https://github.com/ezra-quemuel/fsh/issues"
   },
-  "homepage": "https://github.com/ezra-quemuel/node-webhdfs#readme",
+  "homepage": "https://github.com/ezra-quemuel/fsh#readme",
   "dependencies": {
     "lodash": "^4.13.1",
     "restler": "^3.4.0",

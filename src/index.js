@@ -49,7 +49,12 @@ class FSH {
         return this;
     }
 
-    mkdir( path, mode = 0o755, cb ) {
+    mkdir( path, mode, cb ) {
+        if (_.isFunction(mode)) {
+            cb = mode;
+            mode = 0o755;
+        }
+
         if (!this.config.useHDFS) return fs.mkdir( path, mode, cb );
 
         this._sendRequest( 'put', 'MKDIRS', path, { permissions: mode }, ( err, res ) => {
@@ -63,7 +68,12 @@ class FSH {
         });
     }
 
-    chmod( path, mode = 0o755, cb ) {
+    chmod( path, mode, cb ) {
+        if (_.isFunction(mode)) {
+            cb = mode;
+            mode = 0o755;
+        }
+
         if (!this.config.useHDFS) return fs.chmod( path, mode, cb );
 
         this._sendRequest( 'put', 'SETPERMISSION', path, { permissions: mode }, ( err, res ) => {
@@ -119,7 +129,12 @@ class FSH {
         });
     }
 
-    unlink( path, recursive = null, cb) {
+    unlink( path, recursive, cb) {
+        if (_.isFunction(recursive)) {
+            cb = recursive;
+            recursive = null;
+        }
+
         if (!this.config.useHDFS) return fs.unlink( path, cb );
 
         this._sendRequest( 'del', 'DELETE', path, { recursive }, ( err, res ) => {
@@ -154,6 +169,11 @@ class FSH {
     }
 
     writeFile( path, data, opts, cb ) {
+        if (_.isFunction(opts)) {
+            cb = opts;
+            opts = {};
+        }
+
         if (!this.config.useHDFS) return fs.writeFile( path, data, opts, cb );
 
         this._sendRequest( 'put', 'CREATE', path, opts, (err, res) => {
@@ -170,6 +190,11 @@ class FSH {
     }
 
     appendFile( path, data, opts, cb ) {
+        if (_.isFunction(opts)) {
+            cb = opts;
+            opts = {};
+        }
+
         if (!this.config.useHDFS) return fs.appendFile( path, data, opts, cb );
 
         this._sendRequest( 'post', 'APPEND', path, opts, (err, res) => {
@@ -186,6 +211,11 @@ class FSH {
     }
 
     readFile( path, opts, cb ) {
+        if (_.isFunction(opts)) {
+            cb = opts;
+            opts = {};
+        }
+
         if (!this.config.useHDFS) return fs.readFile( path, opts, cb );
 
         this._sendRequest( 'get', 'OPEN', path, opts, (err, res) => {

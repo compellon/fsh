@@ -212,12 +212,6 @@ class FSH {
         });
     }
 
-    exists( path, cb ) {
-        if (!this.config.useHDFS) return fs.exists( path, cb );
-
-        this.stat( path, err => err ? cb( null, false ) : cb( null, true ) );
-    }
-
     writeJson(path, json, opts, cb) {
         if (!this.config.useHDFS) return fs.writeJson( path, data, opts, cb );
         if (_.isFunction(opts)) {

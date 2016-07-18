@@ -1,7 +1,7 @@
 const _ = require( 'lodash' );
 const rest = require('restler');
 const URI = require('urijs');
-const fs = require('fs');
+const fs = require('fs-extra');
 const errors = require('./errors');
 const HDFSError = errors.HDFSError;
 const ValidationError = errors.ValidationError;
@@ -216,6 +216,20 @@ class FSH {
         if (!this.config.useHDFS) return fs.exists( path, cb );
 
         this.stat( path, err => err ? cb( null, false ) : cb( null, true ) );
+    }
+
+    writeJson(path, json, opts, cb) {
+        if (!this.config.useHDFS) return fs.writeJson( path, data, opts, cb );
+        if (_.isFunction(opts)) {
+            cb = opts;
+            opts = {};
+        }
+        if (typeof json !== 'object')
+            return cb('Input must be an object. Try using writeFile instead or convert to an object.');
+
+        const jsonToWrite = JSON.stringify(json);
+
+        this.writeFile(path, jsonToWrite, opts, cb);
     }
 
     writeFile( path, data, opts, cb ) {

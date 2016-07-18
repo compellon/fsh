@@ -58,7 +58,7 @@ class FSH {
             mode = 0o755;
         }
 
-        if (!this.config.useHDFS) return fs.mkdir( path, mode, cb );
+        if (!this.config.useHDFS) return fs.ensureDir( path, mode, cb );
 
         this._sendRequest( 'put', 'MKDIRS', path, { permissions: mode }, ( err, res ) => {
             if ( err )
@@ -166,7 +166,7 @@ class FSH {
     }
 
     rename( path, destination, cb ) {
-        if (!this.config.useHDFS) return fs.rename( path, destination, cb );
+        if (!this.config.useHDFS) return fs.move( path, destination, cb );
 
         this._sendRequest( 'put', 'RENAME', path, { destination }, ( err, res ) => {
             if ( err )

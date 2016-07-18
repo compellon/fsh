@@ -303,7 +303,7 @@ class FSH {
             try {
                 const parsedJSON = JSON.parse(data);
                 cb(null, parsedJSON);
-            } catch () {
+            } catch (e) {
                 cb(`Invalid JSON data in ${path}`);
             }
         });

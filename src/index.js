@@ -166,7 +166,7 @@ class FSH {
     }
 
     rename( path, destination, cb ) {
-        if (!this.config.useHDFS) return fs.move( path, destination, cb );
+        if (!this.config.useHDFS) return fs.move( path, destination, { clobber: true }, cb );
 
         this._sendRequest( 'put', 'RENAME', path, { destination }, ( err, res ) => {
             if ( err )

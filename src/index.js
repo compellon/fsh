@@ -290,6 +290,24 @@ class FSH {
                 .on('success', data => cb(null, data));
         });
     }
+
+    readJson( path, opts, cb ) {
+        if (_.isFunction(opts)) {
+            cb = opts;
+            opts = {};
+        }
+        if (!this.config.useHDFS) return fs.readJson( path, opts, cb );
+
+        this.readFile( path, opts, (err, data) => {
+            if (err) return cb(err);
+            try {
+                const parsedJSON = JSON.parse(data);
+                cb(null, parsedJSON);
+            } catch () {
+                cb(`Invalid JSON data in ${path}`);
+            }
+        });
+    }
 }
 
 module.exports = FSH;

@@ -213,7 +213,7 @@ class FSH {
     }
 
     writeJson(path, json, opts, cb) {
-        if (!this.config.useHDFS) return fs.writeJson( path, data, opts, cb );
+        if (!this.config.useHDFS) return fs.writeJson( path, json, opts, cb );
         if (_.isFunction(opts)) {
             cb = opts;
             opts = {};

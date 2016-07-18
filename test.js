@@ -45,6 +45,11 @@ fs.unlink( '/webhdfs', true, err => {
                                         fs.exists( '/ezra/othertext.txt', (err, exists) => {
                                             if (err) throw err;
                                             console.log('/ezra/othertext.txt exists: ', exists);
+
+                                            fs.copy('/ezra/othertext.txt', '/ezra/othertext3.txt', err => {
+                                                if (err) throw err;
+                                                console.log('Copied /ezra/othertext.txt to /ezra/othertext2.txt');
+                                            });
                                         });
 
                                     });

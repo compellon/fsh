@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ezra-quemuel/node-webhdfs.git"
+    "url": "git+https://github.com/ezra-quemuel/fsh.git"
   },
   "keywords": [
     "hadoop",
@@ -24,6 +24,7 @@
   "dependencies": {
     "lodash": "^4.13.1",
     "restler": "^3.4.0",
-    "urijs": "^1.18.1"
+    "urijs": "^1.18.1",
+    "webhdfs": "^0.3.0"
   }
 }

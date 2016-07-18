@@ -6,12 +6,15 @@ const errors = require('./errors');
 const HDFSError = errors.HDFSError;
 const ValidationError = errors.ValidationError;
 const ResponseError = errors.ResponseError;
+const WebHDFS = require('webhdfs');
+const os = require('os');
 
 class FSH {
     constructor( config ) {
         const { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1', useHDFS = false } = config;
         const connection = { user, hostname: host, port, protocol, path };
         this.config = { connection, useHDFS };
+        this.hdfs = WebHDFS.createClient( {user, host, port, path} );
     }
 
     _constructURL(path, op, params = {}) {
@@ -112,6 +115,53 @@ class FSH {
                 return cb( new ResponseError( `Received an unexpected status code when attempting to list directory ${path}: ${res.statusCode}` ) );
 
             cb( null, body.FileStatuses.FileStatus );
+        });
+    }
+
+    copy( path, destination, cb) {
+        if (!this.config.useHDFS) return fs.copy( path, destination, cb );
+
+        const tmpDir = os.tmpdir();
+        const timestamp = new Date().getTime();
+        const tmpFile = `${tmpDir}/${timestamp}`;
+
+        this.copyToLocal( path, tmpFile, err => {
+            if (err) return cb(err);
+            this.copyFromLocal( tmpFile, destination, cb );
+        })
+    }
+
+    copyToLocal( path, destination, cb ) {
+        if (!this.config.useHDFS) return cb( 'HDFS must be enabled to copy to local' );
+
+        const remoteFileStream = this.hdfs.createReadStream( path );
+        const localFileStream = fs.createWriteStream( destination );
+
+        remoteFileStream.pipe(localFileStream);
+
+        localFileStream.on( 'error', cb );
+        localFileStream.on( 'finish', res => {
+            if ( _.isError(res) ) {
+                return cb(res);
+            }
+            cb();
+        });
+    }
+
+    copyFromLocal( path, destination, cb ) {
+        if (!this.config.useHDFS) return cb( 'HDFS must be enabled to copy from local' );
+
+        const localFileStream = fs.createReadStream( path );
+        const remoteFileStream = this.hdfs.createWriteStream( destination );
+
+        localFileStream.pipe(remoteFileStream);
+
+        remoteFileStream.on( 'error', cb );
+        remoteFileStream.on( 'finish', res => {
+            if ( _.isError(res) ) {
+                return cb(res);
+            }
+            cb();
         });
     }
 

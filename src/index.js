@@ -198,6 +198,12 @@ class FSH {
         });
     }
 
+    remove( path, cb) {
+        if (!this.config.useHDFS) return fs.remove( path, cb );
+
+        this.unlink( path, true, cb);
+    }
+
     stat( path, cb ) {
         if (!this.config.useHDFS) return fs.stat( path, cb );
 

@@ -58,49 +58,54 @@ class FSH {
     }
 
     mkdir( path, mode = 0o755 ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.ensureDirAsync( uri.path(), mode ) :
-            this._sendRequest( 'put', 'MKDIRS', uri, { permissions: mode } ).then( res => res.data )
+            self._sendRequest( 'put', 'MKDIRS', uri, { permissions: mode } ).then( res => res.data )
         );
     }
 
     chmod( path, mode = 0o755 ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.chmodAsync( path, mode ) :
-            this._sendRequest( 'put', 'SETPERMISSION', uri, { permissions: mode } ).then( res => res.data )
+            self._sendRequest( 'put', 'SETPERMISSION', uri, { permissions: mode } ).then( res => res.data )
         );
     }
 
     chown( path, owner, group ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.chownAsync( path, owner, group ) :
-            this._sendRequest( 'put', 'SETOWNER', uri, { owner, group } ).then( res => res.data )
+            self._sendRequest( 'put', 'SETOWNER', uri, { owner, group } ).then( res => res.data )
         );
     }
 
     readdir( path ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.readdirAsync( path, null ) :
-            this._sendRequest( 'get', 'LISTSTATUS', uri ).then( res => res.data.FileStatuses.FileStatus )
+            self._sendRequest( 'get', 'LISTSTATUS', uri ).then( res => res.data.FileStatuses.FileStatus )
         );
     }
 
     copy( path, destination ) {
+        const self = this;
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
             .spread( ( srcURI, destURI ) => {
                 if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' )
                     return fs.copyAsync( path, destination );
                 else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() !== 'hdfs' )
-                    return this.copyToLocal( path, destination );
+                    return self.copyToLocal( path, destination );
                 else if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() === 'hdfs' )
-                    return this.copyFromLocal( path, destination );
+                    return self.copyFromLocal( path, destination );
                 else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() === 'hdfs' ) {
                     const tmpDir = os.tmpdir();
                     const timestamp = new Date().getTime();
                     //TODO: replace with guids?
                     const tmpFile = `${tmpDir}/${timestamp}`;
 
-                    return this.copyToLocal( path, tmpFile ).then( () => this.copyFromLocal( tmpFile, destination) );
+                    return self.copyToLocal( path, tmpFile ).then( () => self.copyFromLocal( tmpFile, destination) );
                 }
             });
     }
@@ -131,12 +136,13 @@ class FSH {
     }
 
     copyFromLocal( path, hdfsDestination ) {
+        const self = this;
         return Promise.all([ validateUri( path, ['file', ''] ), validateUri( hdfsDestination, [ 'hdfs' ] ) ])
             .spread( ( srcUri, destUri ) => {
                 const hdfs = WebHDFS.createClient( this.conn );
             
                 const localFileStream = fs.createReadStream( path );
-                const remoteFileStream = this.hdfs.createWriteStream( destination );
+                const remoteFileStream = hdfs.createWriteStream( destination );
                 
                 return new Promise( ( resolve, reject ) => {
                     localFileStream.pipe( remoteFileStream );
@@ -155,36 +161,43 @@ class FSH {
 
     //TODO: implement like copy()
     rename( path, destination ) {
+        const self = this;
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
-            .spread( ( srcUri, destURI ) => 
-                srcUri.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' ?
-                    fs.moveAsync( srcUri.path(), destURI.path(), { clobber: true } ) :
-                    this._sendRequest( 'put', 'RENAME', uri, { destination: destURI.path() } ).then( res => res.data )
-            );
+            .spread( ( srcUri, destURI ) => {
+                if ( srcUri.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' ) {
+                    return fs.moveAsync( srcUri.path(), destURI.path() );
+                } else {
+                    return self.copy( path, destination ).then( () => self.remove( path ) );
+                }
+            });
     }
 
     unlink( path, recursive = null) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.unlinkAsync( path ) :
-            this._sendRequest( 'delete', 'DELETE', uri, { recursive } ).then( res => res.data )
+            self._sendRequest( 'delete', 'DELETE', uri, { recursive } ).then( res => res.data )
         );
     }
 
     remove( path ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.removeAsync( path ) :
-            this.unlink( path, true )
+            self.unlink( path, true )
         );
     }
 
     stat( path ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.statAsync( path ) :
-            this._sendRequest( 'get', 'GETFILESTATUS', path ).then( res => res.data.FileStatus )
+            self._sendRequest( 'get', 'GETFILESTATUS', path ).then( res => res.data.FileStatus )
         );
     }
 
     writeJson( path, json, opts = {} ) {
+        const self = this;
         return validateUri( path ).then( uri => {
             const useHDFS = uri.protocol() === 'hdfs';
 
@@ -193,14 +206,15 @@ class FSH {
 
             if ( !useHDFS ) return fs.writeJsonAsync( path, json, opts );
             
-            return this.writeFile( path, json.stringify( json ), opts )
+            return self.writeFile( path, json.stringify( json ), opts )
         });
     }
 
     writeFile( path, data, opts = {} ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.writeFileAsync( path, data, opts ) :
-            this._sendRequest( 'put', 'CREATE', path, opts )
+            self._sendRequest( 'put', 'CREATE', path, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method, data } ) )
                 .then( res => res.data )
@@ -209,20 +223,22 @@ class FSH {
     }
 
     appendFile( path, data, opts = {} ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.appendFileAsync( path, data, opts ) :
-            this._sendRequest( 'post', 'APPEND', path, opts )
+            self._sendRequest( 'post', 'APPEND', path, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method, data } ) )
                 .then( res => res.data )
-                .catch( err => handleHDFSError );
+                .catch( err => handleHDFSError )
         );
     }
 
     readFile( path, opts = {} ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.readFileAsync( path, opts ) :
-            this._sendRequest( 'get', 'OPEN', path, opts )
+            self._sendRequest( 'get', 'OPEN', path, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method } ) )
                 .then( res => res.data )
@@ -231,9 +247,10 @@ class FSH {
     }
 
     readJson( path, opts = {} ) {
+        const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.readJsonAsync( path, opts ) :
-            this.readFile( path, opts).then( JSON.stringify )
+            self.readFile( path, opts).then( JSON.stringify )
         );
     }
 }

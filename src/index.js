@@ -147,7 +147,7 @@ class FSH {
                 if ( srcUri.hostname() ) conn.host = srcUri.hostname();
                 const hdfs = WebHDFS.createClient( conn );
             
-                const localFileStream = fs.createReadStream( path );
+                const localFileStream = fs.createReadStream( srcUri.path() );
                 const remoteFileStream = hdfs.createWriteStream( destUri.path() );
                 
                 return new Promise( ( resolve, reject ) => {

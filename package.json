@@ -22,10 +22,11 @@
   },
   "homepage": "https://github.com/ezra-quemuel/fsh#readme",
   "dependencies": {
-    "bluebird": "^3.4.1",
+    "axios": "^0.14.0",
+    "bluebird": "^3.4.6",
+    "eslint": "^3.5.0",
     "fs-extra": "^0.30.0",
     "lodash": "^4.13.1",
-    "restler": "^3.4.0",
     "urijs": "^1.18.1",
     "webhdfs": "^0.3.0"
   }

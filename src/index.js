@@ -1,7 +1,8 @@
 const _ = require( 'lodash' );
+const Promise = require('bluebird');
 const rest = require('restler');
 const URI = require('urijs');
-const fs = require('fs-extra');
+const fs = Promise.promisifyAll(require('fs-extra'));
 const errors = require('./errors');
 const HDFSError = errors.HDFSError;
 const ValidationError = errors.ValidationError;
@@ -9,310 +10,231 @@ const ResponseError = errors.ResponseError;
 const WebHDFS = require('webhdfs');
 const os = require('os');
 
+const handleHDFSError = err => {
+    if ( err.response ) {
+        if ( _.has( err.response.data, 'RemoteException' ) ) 
+            throw new HDFSError( data );
+        else 
+            throw new ResponseError( `Got unexpected status code for ${url}: ${res.statusCode}` );
+    }
+    throw err;
+};
+
+const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Promise.try( () => {
+    const uri = new URI( pathOrUri );
+    const protocol = uri.protocol();
+
+    if ( !_.includes( validProtocols, protocol ) )
+        throw new ValidationError( `Unsupported protocol [${protocol}].` )
+
+    return uri;
+});
+
 class FSH {
-    constructor( config ) {
-        const { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1', useHDFS = false } = config;
-        const connection = { user, hostname: host, port, protocol, path };
-        this.config = { connection, useHDFS };
-        this.hdfs = WebHDFS.createClient( {user, host, port, path} );
+    constructor( conn ) {
+        const { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1' } = conn;
+        this.conn = conn
+        this.baseURI = new URI( _.omit( conn, 'user' ) );
+        this.client = axios.createClient();
+        this.client.defaults.baseURL = this.baseURI.toString();
+        this.client.defaults.maxRedirects = 0;
     }
 
-    _constructURL(path, op, params = {}) {
-        params['user.name'] = params['user.name'] || this.config.connection.user;
+    _constructURL( path, op, params = {} ) {
+        params['user.name'] = params['user.name'] || this.conn.user;
         const queryParams = _.extend({ op }, params);
-        const uriParts = _.extend(_.clone(this.config.connection), { path: this.config.connection.path + path });
+        const uriParts = _.extend( _.clone( this.conn ), { path: this.conn.path + path } );
         return new URI( uriParts ).query( queryParams );
     }
 
-    _sendRequest( method, op, path, params, cb ) {
+    _sendRequest( method, op, uri, params = {} ) {
+        const url = this._constructURL( uri.path(), op, params).toString();
+        const opts = { url, method };
 
-        if ( !cb )
-            throw new ValidationError( 'A callback must be specified.' );
+        if ( uri.hostname() )
+            opts.baseURL = new URI( this.baseURI ).hostname( uri.hostname() ).toString();
 
-        if ( !_.isString( path ) )
-            return cb(new ValidationError( 'path must be a string' ));
-
-        const url = this._constructURL( path, op, params).toString();
-        rest[method](url, { followRedirects: false })
-            .on( 'error', err => cb(err) )
-            .on( 'fail', (data, res) => _.has( data, 'RemoteException') ?
-                cb( new HDFSError( data ), res ) :
-                cb( new ResponseError( `Got unexpected status code for ${url}: ${res.statusCode}` ), res)
-            )
-            .on( 'success', (data, res) => cb( null, res, data) );
+        return this.client.request( opts ).catch( handleHDFSError );
     }
 
-    hdfs() {
-        this.config.useHDFS = true;
-        return this;
+    mkdir( path, mode = 0o755 ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.ensureDirAsync( uri.path(), mode ) :
+            this._sendRequest( 'put', 'MKDIRS', uri, { permissions: mode } ).then( res => res.data )
+        );
     }
 
-    fs() {
-        this.config.useHDFS = false;
-        return this;
+    chmod( path, mode = 0o755 ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.chmodAsync( path, mode ) :
+            this._sendRequest( 'put', 'SETPERMISSION', uri, { permissions: mode } ).then( res => res.data )
+        );
     }
 
-    mkdir( path, mode, cb ) {
-        if (_.isFunction(mode)) {
-            cb = mode;
-            mode = 0o755;
-        }
+    chown( path, owner, group ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.chownAsync( path, owner, group ) :
+            this._sendRequest( 'put', 'SETOWNER', uri, { owner, group } ).then( res => res.data )
+        );
+    }
 
-        if (!this.config.useHDFS) return fs.ensureDir( path, mode, cb );
+    readdir( path ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.readdirAsync( path, null ) :
+            this._sendRequest( 'get', 'LISTSTATUS', uri ).then( res => res.data.FileStatuses.FileStatus )
+        );
+    }
 
-        this._sendRequest( 'put', 'MKDIRS', path, { permissions: mode }, ( err, res ) => {
-            if ( err )
-                return cb( err );
+    copy( path, destination ) {
+        return Promise.all([ validateUri( path ), validateUri( destination ) ])
+            .spread( ( srcURI, destURI ) => {
+                if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' )
+                    return fs.copyAsync( path, destination );
+                else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() !== 'hdfs' )
+                    return this.copyToLocal( path, destination );
+                else if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() === 'hdfs' )
+                    return this.copyFromLocal( path, destination );
+                else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() === 'hdfs' ) {
+                    const tmpDir = os.tmpdir();
+                    const timestamp = new Date().getTime();
+                    //TODO: replace with guids?
+                    const tmpFile = `${tmpDir}/${timestamp}`;
 
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to create directory in ${path}: ${res.statusCode}` ) );
+                    return this.copyToLocal( path, tmpFile ).then( () => this.copyFromLocal( tmpFile, destination) );
+                }
+            });
+    }
 
-            cb( null );
+    copyToLocal( hdfsSrc, destination ) {
+        return Promise.all([ validateUri( hdfsSrc, [ 'hdfs' ] ), validateUri( destination, [ 'file', '' ] ) ] )
+            .spread( ( srcUri, destUri ) => {
+                const conn = _.clone( this.conn );
+                if ( srcUri.hostname() ) conn.hostname = srcUri.hostname(); 
+                const hdfs = WebHDFS.createClient( conn );
+
+                const remoteFileStream = hdfs.createReadStream( srcUri.path() );
+                const localFileStream = fs.createWriteStream( destUri.path() );
+
+                return new Promise( ( resolve, reject ) => {
+                    remoteFileStream.pipe( localFileStream );
+
+                    localFileStream.on( 'error', reject );
+
+                    localFileStream.on( 'finish', res => {
+                        if ( _.isError( res ) ) {
+                            return reject(res);
+                        }
+                        resolve();
+                    });
+                });
+            });
+    }
+
+    copyFromLocal( path, hdfsDestination ) {
+        return Promise.all([ validateUri( path, ['file', ''] ), validateUri( hdfsDestination, [ 'hdfs' ] ) ])
+            .spread( ( srcUri, destUri ) => {
+                const hdfs = WebHDFS.createClient( this.conn );
+            
+                const localFileStream = fs.createReadStream( path );
+                const remoteFileStream = this.hdfs.createWriteStream( destination );
+                
+                return new Promise( ( resolve, reject ) => {
+                    localFileStream.pipe( remoteFileStream );
+
+                    remoteFileStream.on( 'error', reject );
+
+                    remoteFileStream.on( 'finish', res => {
+                        if ( _.isError( res ) ) {
+                            return reject( res );
+                        }
+                        resolve();
+                    });
+                });
+            });
+    }
+
+    //TODO: implement like copy()
+    rename( path, destination ) {
+        return Promise.all([ validateUri( path ), validateUri( destination ) ])
+            .spread( ( srcUri, destURI ) => 
+                srcUri.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' ?
+                    fs.moveAsync( srcUri.path(), destURI.path(), { clobber: true } ) :
+                    this._sendRequest( 'put', 'RENAME', uri, { destination: destURI.path() } ).then( res => res.data )
+            );
+    }
+
+    unlink( path, recursive = null) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.unlinkAsync( path ) :
+            this._sendRequest( 'delete', 'DELETE', uri, { recursive } ).then( res => res.data )
+        );
+    }
+
+    remove( path ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.removeAsync( path ) :
+            this.unlink( path, true )
+        );
+    }
+
+    stat( path ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.statAsync( path ) :
+            this._sendRequest( 'get', 'GETFILESTATUS', path ).then( res => res.data.FileStatus )
+        );
+    }
+
+    writeJson( path, json, opts = {} ) {
+        return validateUri( path ).then( uri => {
+            const useHDFS = uri.protocol() === 'hdfs';
+
+            if (typeof json !== 'object')
+                throw new ValidationError('Input must be an object. Try using writeFile instead or convert to an object.');
+
+            if ( !useHDFS ) return fs.writeJsonAsync( path, json, opts );
+            
+            return this.writeFile( path, json.stringify( json ), opts )
         });
     }
 
-    chmod( path, mode, cb ) {
-        if (_.isFunction(mode)) {
-            cb = mode;
-            mode = 0o755;
-        }
-
-        if (!this.config.useHDFS) return fs.chmod( path, mode, cb );
-
-        this._sendRequest( 'put', 'SETPERMISSION', path, { permissions: mode }, ( err, res ) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to modify permissions to ${path}: ${res.statusCode}` ) );
-
-            cb( null );
-        });
+    writeFile( path, data, opts = {} ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.writeFileAsync( path, data, opts ) :
+            this._sendRequest( 'put', 'CREATE', path, opts )
+                .then( res => res.headers.location )
+                .then( url => axios.request( { url, method, data } ) )
+                .then( res => res.data )
+                .catch( err => handleHDFSError )
+        );
     }
 
-    chown( path, owner, group, cb) {
-        if (!this.config.useHDFS) return fs.chown( path, owner, group, cb );
-
-        this._sendRequest( 'put', 'SETOWNER', path, { owner, group }, ( err, res ) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to modify owner for ${path}: ${res.statusCode}` ) );
-
-            cb( null );
-        });
+    appendFile( path, data, opts = {} ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.appendFileAsync( path, data, opts ) :
+            this._sendRequest( 'post', 'APPEND', path, opts )
+                .then( res => res.headers.location )
+                .then( url => axios.request( { url, method, data } ) )
+                .then( res => res.data )
+                .catch( err => handleHDFSError );
+        );
     }
 
-    readdir( path, cb ) {
-        if (!this.config.useHDFS) return fs.readdir( path, null, cb );
-
-        this._sendRequest( 'get', 'LISTSTATUS', path, {}, (err, res, body) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to list directory ${path}: ${res.statusCode}` ) );
-
-            cb( null, body.FileStatuses.FileStatus );
-        });
+    readFile( path, opts = {} ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.readFileAsync( path, opts ) :
+            this._sendRequest( 'get', 'OPEN', path, opts )
+                .then( res => res.headers.location )
+                .then( url => axios.request( { url, method } ) )
+                .then( res => res.data )
+                .catch( err => handleHDFSError )
+        );
     }
 
-    copy( path, destination, cb) {
-        if (!this.config.useHDFS) return fs.copy( path, destination, cb );
-
-        const tmpDir = os.tmpdir();
-        const timestamp = new Date().getTime();
-        const tmpFile = `${tmpDir}/${timestamp}`;
-
-        this.copyToLocal( path, tmpFile, err => {
-            if (err) return cb(err);
-            this.copyFromLocal( tmpFile, destination, cb );
-        })
-    }
-
-    copyToLocal( path, destination, cb ) {
-        if (!this.config.useHDFS) return cb( 'HDFS must be enabled to copy to local' );
-
-        const remoteFileStream = this.hdfs.createReadStream( path );
-        const localFileStream = fs.createWriteStream( destination );
-
-        remoteFileStream.pipe(localFileStream);
-
-        localFileStream.on( 'error', cb );
-        localFileStream.on( 'finish', res => {
-            if ( _.isError(res) ) {
-                return cb(res);
-            }
-            cb();
-        });
-    }
-
-    copyFromLocal( path, destination, cb ) {
-        if (!this.config.useHDFS) return cb( 'HDFS must be enabled to copy from local' );
-
-        const localFileStream = fs.createReadStream( path );
-        const remoteFileStream = this.hdfs.createWriteStream( destination );
-
-        localFileStream.pipe(remoteFileStream);
-
-        remoteFileStream.on( 'error', cb );
-        remoteFileStream.on( 'finish', res => {
-            if ( _.isError(res) ) {
-                return cb(res);
-            }
-            cb();
-        });
-    }
-
-    rename( path, destination, cb ) {
-        if (!this.config.useHDFS) return fs.move( path, destination, { clobber: true }, cb );
-
-        this._sendRequest( 'put', 'RENAME', path, { destination }, ( err, res ) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to rename ${path} to ${destination}: ${res.statusCode}` ) );
-
-            cb( null );
-        });
-    }
-
-    unlink( path, recursive, cb) {
-        if (_.isFunction(recursive)) {
-            cb = recursive;
-            recursive = null;
-        }
-
-        if (!this.config.useHDFS) return fs.unlink( path, cb );
-
-        this._sendRequest( 'del', 'DELETE', path, { recursive }, ( err, res ) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to delete ${path}: ${res.statusCode}` ) );
-
-            cb( null );
-        });
-    }
-
-    remove( path, cb) {
-        if (!this.config.useHDFS) return fs.remove( path, cb );
-
-        this.unlink( path, true, cb);
-    }
-
-    stat( path, cb ) {
-        if (!this.config.useHDFS) return fs.stat( path, cb );
-
-        this._sendRequest( 'get', 'GETFILESTATUS', path, {}, ( err, res, data ) => {
-            if ( err )
-                return cb( err );
-
-            if ( res.statusCode !== 200 )
-                return cb( new ResponseError( `Received an unexpected status code when attempting to get status for ${path}: ${res.statusCode}` ) );
-
-            cb( null, data.FileStatus );
-        });
-    }
-
-    writeJson(path, json, opts, cb) {
-        if (!this.config.useHDFS) return fs.writeJson( path, json, opts, cb );
-        if (_.isFunction(opts)) {
-            cb = opts;
-            opts = {};
-        }
-        if (typeof json !== 'object')
-            return cb('Input must be an object. Try using writeFile instead or convert to an object.');
-
-        const jsonToWrite = JSON.stringify(json);
-
-        this.writeFile(path, jsonToWrite, opts, cb);
-    }
-
-    writeFile( path, data, opts, cb ) {
-        if (_.isFunction(opts)) {
-            cb = opts;
-            opts = {};
-        }
-
-        if (!this.config.useHDFS) return fs.writeFile( path, data, opts, cb );
-
-        this._sendRequest( 'put', 'CREATE', path, opts, (err, res) => {
-            if (err) return cb(err);
-            const writeUrl = res.headers.location;
-            rest.put( writeUrl, { data })
-                .on( 'error', cb)
-                .on( 'fail', (data, res) => _.has( data, 'RemoteException') ?
-                    cb( new HDFSError( data ), res ) :
-                    cb( new ResponseError( `Got unexpected status code for ${writeUrl}: ${res.statusCode}` ), res)
-                )
-                .on( 'success', () => cb( null ) );
-        });
-    }
-
-    appendFile( path, data, opts, cb ) {
-        if (_.isFunction(opts)) {
-            cb = opts;
-            opts = {};
-        }
-
-        if (!this.config.useHDFS) return fs.appendFile( path, data, opts, cb );
-
-        this._sendRequest( 'post', 'APPEND', path, opts, (err, res) => {
-            if (err) return cb(err);
-            const writeUrl = res.headers.location;
-            rest.post(writeUrl, { data })
-                .on('error', cb)
-                .on('fail', (data, res) => _.has(data, 'RemoteException') ?
-                    cb(new HDFSError(data), res) :
-                    cb(new ResponseError(`Got unexpected status code for ${writeUrl}: ${res.statusCode}`), res)
-                )
-                .on('success', () => cb(null));
-        });
-    }
-
-    readFile( path, opts, cb ) {
-        if (_.isFunction(opts)) {
-            cb = opts;
-            opts = {};
-        }
-
-        if (!this.config.useHDFS) return fs.readFile( path, opts, cb );
-
-        this._sendRequest( 'get', 'OPEN', path, opts, (err, res) => {
-            if ( err ) return cb( err );
-
-            const readUrl = res.headers.location;
-
-            rest.get(readUrl)
-                .on('error', cb)
-                .on('fail', (data, res) => _.has(data, 'RemoteException') ?
-                    cb(new HDFSError(data), res) :
-                    cb(new ResponseError(`Got unexpected status code for ${readUrl}: ${res.statusCode}`), res)
-                )
-                .on('success', data => cb(null, data));
-        });
-    }
-
-    readJson( path, opts, cb ) {
-        if (_.isFunction(opts)) {
-            cb = opts;
-            opts = {};
-        }
-        if (!this.config.useHDFS) return fs.readJson( path, opts, cb );
-
-        this.readFile( path, opts, (err, data) => {
-            if (err) return cb(err);
-            try {
-                const parsedJSON = JSON.parse(data);
-                cb(null, parsedJSON);
-            } catch (e) {
-                cb(`Invalid JSON data in ${path}`);
-            }
-        });
+    readJson( path, opts = {} ) {
+        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
+            fs.readJsonAsync( path, opts ) :
+            this.readFile( path, opts).then( JSON.stringify )
+        );
     }
 }
 

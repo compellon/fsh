@@ -35,6 +35,8 @@ class FSH {
         const { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1' } = conn;
         this.conn = conn;
         this.conn.hostname = host;
+        this.conn.path = path;
+        this.conn.protocol = protocol;
         const uriParts = _.omit( conn, [ 'user', 'host' ] );
         this.baseURI = new URI( );
         this.client = axios.create();
@@ -146,7 +148,7 @@ class FSH {
                 const hdfs = WebHDFS.createClient( conn );
             
                 const localFileStream = fs.createReadStream( path );
-                const remoteFileStream = hdfs.createWriteStream( destination );
+                const remoteFileStream = hdfs.createWriteStream( destUri.path() );
                 
                 return new Promise( ( resolve, reject ) => {
                     localFileStream.pipe( remoteFileStream );

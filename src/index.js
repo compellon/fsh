@@ -212,7 +212,7 @@ class FSH {
 
             if ( !useHDFS ) return fs.writeJsonAsync( path, json, opts );
             
-            return self.writeFile( path, json.stringify( json ), opts )
+            return self.writeFile( path, JSON.stringify( json ), opts )
         });
     }
 

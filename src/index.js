@@ -1,6 +1,6 @@
 const _ = require( 'lodash' );
 const Promise = require('bluebird');
-const rest = require('restler');
+const axios = require('axios');
 const URI = require('urijs');
 const fs = Promise.promisifyAll(require('fs-extra'));
 const errors = require('./errors');

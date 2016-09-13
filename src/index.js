@@ -198,7 +198,7 @@ class FSH {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.statAsync( path ) :
-            self._sendRequest( 'get', 'GETFILESTATUS', path ).then( res => res.data.FileStatus )
+            self._sendRequest( 'get', 'GETFILESTATUS', uri ).then( res => res.data.FileStatus )
         );
     }
 
@@ -220,7 +220,7 @@ class FSH {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.writeFileAsync( path, data, opts ) :
-            self._sendRequest( 'put', 'CREATE', path, opts )
+            self._sendRequest( 'put', 'CREATE', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method, data } ) )
                 .then( res => res.data )
@@ -232,7 +232,7 @@ class FSH {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.appendFileAsync( path, data, opts ) :
-            self._sendRequest( 'post', 'APPEND', path, opts )
+            self._sendRequest( 'post', 'APPEND', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method, data } ) )
                 .then( res => res.data )
@@ -244,7 +244,7 @@ class FSH {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.readFileAsync( path, opts ) :
-            self._sendRequest( 'get', 'OPEN', path, opts )
+            self._sendRequest( 'get', 'OPEN', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method } ) )
                 .then( res => res.data )

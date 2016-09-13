@@ -33,8 +33,10 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
 class FSH {
     constructor( conn ) {
         const { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1' } = conn;
-        this.conn = conn
-        this.baseURI = new URI( _.omit( conn, 'user' ) );
+        this.conn = conn;
+        this.conn.hostname = host;
+        const uriParts = _.omit( conn, [ 'user', 'host' ] );
+        this.baseURI = new URI( );
         this.client = axios.createClient();
         this.client.defaults.baseURL = this.baseURI.toString();
         this.client.defaults.maxRedirects = 0;
@@ -113,8 +115,8 @@ class FSH {
     copyToLocal( hdfsSrc, destination ) {
         return Promise.all([ validateUri( hdfsSrc, [ 'hdfs' ] ), validateUri( destination, [ 'file', '' ] ) ] )
             .spread( ( srcUri, destUri ) => {
-                const conn = _.clone( this.conn );
-                if ( srcUri.hostname() ) conn.hostname = srcUri.hostname(); 
+                const conn = _.omit( this.conn, 'hostname' );
+                if ( srcUri.hostname() ) conn.host = srcUri.hostname(); 
                 const hdfs = WebHDFS.createClient( conn );
 
                 const remoteFileStream = hdfs.createReadStream( srcUri.path() );
@@ -139,7 +141,9 @@ class FSH {
         const self = this;
         return Promise.all([ validateUri( path, ['file', ''] ), validateUri( hdfsDestination, [ 'hdfs' ] ) ])
             .spread( ( srcUri, destUri ) => {
-                const hdfs = WebHDFS.createClient( this.conn );
+                const conn = _.omit( this.conn, 'hostname' );
+                if ( srcUri.hostname() ) conn.host = srcUri.hostname();
+                const hdfs = WebHDFS.createClient( conn );
             
                 const localFileStream = fs.createReadStream( path );
                 const remoteFileStream = hdfs.createWriteStream( destination );
@@ -250,7 +254,7 @@ class FSH {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
             fs.readJsonAsync( path, opts ) :
-            self.readFile( path, opts).then( JSON.stringify )
+            this.readFile( path, opts).then( JSON.stringify )
         );
     }
 }

@@ -222,7 +222,7 @@ class FSH {
             fs.writeFileAsync( path, data, opts ) :
             self._sendRequest( 'put', 'CREATE', uri, opts )
                 .then( res => res.headers.location )
-                .then( url => axios.request( { url, method, data } ) )
+                .then( url => axios.request( { url, method: 'put', data } ) )
                 .then( res => res.data )
                 .catch( err => handleHDFSError )
         );
@@ -234,7 +234,7 @@ class FSH {
             fs.appendFileAsync( path, data, opts ) :
             self._sendRequest( 'post', 'APPEND', uri, opts )
                 .then( res => res.headers.location )
-                .then( url => axios.request( { url, method, data } ) )
+                .then( url => axios.request( { url, method: 'post', data } ) )
                 .then( res => res.data )
                 .catch( err => handleHDFSError )
         );
@@ -246,7 +246,7 @@ class FSH {
             fs.readFileAsync( path, opts ) :
             self._sendRequest( 'get', 'OPEN', uri, opts )
                 .then( res => res.headers.location )
-                .then( url => axios.request( { url, method } ) )
+                .then( url => axios.request( { url, method: 'get' } ) )
                 .then( res => res.data )
                 .catch( err => handleHDFSError )
         );

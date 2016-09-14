@@ -38,7 +38,7 @@ class FSH {
         this.conn.path = path;
         this.conn.protocol = protocol;
         const uriParts = _.omit( conn, [ 'user', 'host' ] );
-        this.baseURI = new URI( );
+        this.baseURI = new URI( uriParts );
         this.client = axios.create();
         this.client.defaults.baseURL = this.baseURI.toString();
         this.client.defaults.maxRedirects = 0;

@@ -33,7 +33,7 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
 class FSH {
     constructor( { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1' } ) {
         this.conn = { user, host, port, protocol, path, hostname: host };
-        const uriParts = _.omit( conn, [ 'user', 'host' ] );
+        const uriParts = _.omit( this.conn, [ 'user', 'host' ] );
         this.baseURI = new URI( uriParts );
         this.client = axios.create();
         this.client.defaults.baseURL = this.baseURI.toString();

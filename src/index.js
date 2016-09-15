@@ -94,7 +94,7 @@ class FSH {
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
             .spread( ( srcURI, destURI ) => {
                 if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' )
-                    return fs.copyAsync( path, destination );
+                    return fs.copyAsync( srcURI.path(), destURI.path() );
                 else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() !== 'hdfs' )
                     return self.copyToLocal( path, destination );
                 else if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() === 'hdfs' )

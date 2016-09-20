@@ -2,7 +2,7 @@
   "name": "fsh",
   "version": "0.0.1",
   "description": "Library to interact with the WEBHDFS REST API",
-  "main": "dist/lib/index.js",
+  "main": "dist/lib/fsh.js",
   "scripts": {
     "build": "npm update && node_modules/.bin/babel src/ -d dist/ --copy-files --source-maps --presets node6",
     "clean": "rm -rf dist/",

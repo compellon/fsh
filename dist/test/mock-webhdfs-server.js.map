@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../src/test/mock-webhdfs-server.js"],"names":["url"],"mappings":";;;;;;AAAA;;;;;;kBAEeA,OAAO;AAClB,wBAAMA,GAAN;AAEH,C","file":"mock-webhdfs-server.js","sourcesContent":["import nock from 'nock';\n\nexport default url => {\n    nock( url )\n        \n};\n"]}

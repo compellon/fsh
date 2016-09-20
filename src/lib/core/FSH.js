@@ -1,14 +1,12 @@
-const _ = require( 'lodash' );
-const Promise = require('bluebird');
-const axios = require('axios');
-const URI = require('urijs');
-const fs = Promise.promisifyAll(require('fs-extra'));
-const errors = require('./errors');
-const HDFSError = errors.HDFSError;
-const ValidationError = errors.ValidationError;
-const ResponseError = errors.ResponseError;
-const WebHDFS = require('webhdfs');
-const os = require('os');
+import _ from 'lodash';
+import Promise from 'bluebird';
+import axios from 'axios';
+import URI  from 'urijs';
+import { HDFSError, ValidationError, ResponseError } from './errors';
+import WebHDFS from 'webhdfs';
+import os from 'os';
+
+const fs = Promise.promisifyAll( require('fs-extra') );
 
 const handleHDFSError = err => {
     if ( err.response ) {
@@ -25,12 +23,12 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
     const protocol = uri.protocol();
 
     if ( !_.includes( validProtocols, protocol ) )
-        throw new ValidationError( `Unsupported protocol [${protocol}].` )
+        throw new ValidationError( `Unsupported protocol [${protocol}].` );
 
     return uri;
 });
 
-class FSH {
+export default class FSH {
     constructor( { user = 'root', host = 'localhost', port = 50070, protocol = 'http', path = '/webhdfs/v1' } ) {
         this.conn = { user, host, port, protocol, path, hostname: host };
         const uriParts = _.omit( this.conn, [ 'user', 'host' ] );
@@ -68,7 +66,7 @@ class FSH {
     chmod( path, mode = 0o755 ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.chmodAsync( path, mode ) :
+            fs.chmodAsync( uri.path(), mode ) :
             self._sendRequest( 'put', 'SETPERMISSION', uri, { permissions: mode } ).then( res => res.data )
         );
     }
@@ -76,7 +74,7 @@ class FSH {
     chown( path, owner, group ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.chownAsync( path, owner, group ) :
+            fs.chownAsync( uri.path(), owner, group ) :
             self._sendRequest( 'put', 'SETOWNER', uri, { owner, group } ).then( res => res.data )
         );
     }
@@ -102,7 +100,7 @@ class FSH {
                 else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() === 'hdfs' ) {
                     const tmpDir = os.tmpdir();
                     const timestamp = new Date().getTime();
-                    //TODO: replace with guids?
+                    // TODO: replace with guids?
                     const tmpFile = `${tmpDir}/${timestamp}`;
 
                     return self.copyToLocal( path, tmpFile ).then( () => self.copyFromLocal( tmpFile, destination) );
@@ -110,6 +108,7 @@ class FSH {
             });
     }
 
+    // TODO: implement without webhdfs lib
     copyToLocal( hdfsSrc, destination ) {
         return Promise.all([ validateUri( hdfsSrc, [ 'hdfs' ] ), validateUri( destination, [ 'file', '' ] ) ] )
             .spread( ( srcUri, destUri ) => {
@@ -135,6 +134,7 @@ class FSH {
             });
     }
 
+    // TODO: implement without webhdfs lib 
     copyFromLocal( path, hdfsDestination ) {
         const self = this;
         return Promise.all([ validateUri( path, ['file', ''] ), validateUri( hdfsDestination, [ 'hdfs' ] ) ])
@@ -161,7 +161,6 @@ class FSH {
             });
     }
 
-    //TODO: implement like copy()
     rename( path, destination ) {
         const self = this;
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
@@ -177,7 +176,7 @@ class FSH {
     unlink( path, recursive = null) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.unlinkAsync( path ) :
+            fs.unlinkAsync( uri.path() ) :
             self._sendRequest( 'delete', 'DELETE', uri, { recursive } ).then( res => res.data )
         );
     }
@@ -185,7 +184,7 @@ class FSH {
     remove( path ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.removeAsync( path ) :
+            fs.removeAsync( uri.path() ) :
             self.unlink( path, true )
         );
     }
@@ -193,7 +192,7 @@ class FSH {
     stat( path ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.statAsync( path ) :
+            fs.statAsync( uri.path() ) :
             self._sendRequest( 'get', 'GETFILESTATUS', uri ).then( res => res.data.FileStatus )
         );
     }
@@ -208,14 +207,14 @@ class FSH {
 
             if ( !useHDFS ) return fs.writeJsonAsync( path, json, opts );
             
-            return self.writeFile( path, JSON.stringify( json ), opts )
+            return self.writeFile( path, JSON.stringify( json ), opts );
         });
     }
 
     writeFile( path, data, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.writeFileAsync( path, data, opts ) :
+            fs.writeFileAsync( uri.path(), data, opts ) :
             self._sendRequest( 'put', 'CREATE', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'put', data } ) )
@@ -227,7 +226,7 @@ class FSH {
     appendFile( path, data, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.appendFileAsync( path, data, opts ) :
+            fs.appendFileAsync( uri.path(), data, opts ) :
             self._sendRequest( 'post', 'APPEND', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'post', data } ) )
@@ -239,7 +238,7 @@ class FSH {
     readFile( path, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.readFileAsync( path, opts ) :
+            fs.readFileAsync( uri.path(), opts ) :
             self._sendRequest( 'get', 'OPEN', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'get' } ) )
@@ -251,10 +250,8 @@ class FSH {
     readJson( path, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.readJsonAsync( path, opts ) :
+            fs.readJsonAsync( uri.path(), opts ) :
             this.readFile( path, opts).then( JSON.stringify )
         );
     }
 }
-
-module.exports = FSH;

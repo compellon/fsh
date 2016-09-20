@@ -30,4 +30,4 @@ class ResponseError extends NamedError {
     }
 }
 
-module.exports = {HDFSError, ValidationError, ResponseError};
+module.exports = { HDFSError, ValidationError, ResponseError };

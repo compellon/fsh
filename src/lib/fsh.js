@@ -17,4 +17,4 @@ const fsh = createInstance();
 // Factory for creating new instances
 fsh.create = defaultConfig => createInstance(defaultConfig);
 
-export default fsh;
+module.exports = fsh;

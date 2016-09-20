@@ -1,9 +1,5 @@
 'use strict';
 
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-
 var _lodash = require('lodash');
 
 var _lodash2 = _interopRequireDefault(_lodash);
@@ -36,5 +32,5 @@ const fsh = createInstance();
 // Factory for creating new instances
 fsh.create = defaultConfig => createInstance(defaultConfig);
 
-exports.default = fsh;
+module.exports = fsh;
 //# sourceMappingURL=fsh.js.map

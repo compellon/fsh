@@ -18,14 +18,14 @@ const handleHDFSError = err => {
     throw err;
 };
 
-const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Promise.try( () => {
+const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file' ] ) => Promise.try( () => {
     const uri = new URI( pathOrUri );
-    const protocol = uri.protocol();
+    const protocol = uri.protocol() || 'file';
 
     if ( !_.includes( validProtocols, protocol ) )
         throw new ValidationError( `Unsupported protocol [${protocol}].` );
 
-    return uri;
+    return new URI({ protocol, path: uri.path() });
 });
 
 export default class FSH {

@@ -11,7 +11,7 @@ const fs = Promise.promisifyAll( require('fs-extra') );
 const handleHDFSError = err => {
     if ( err.response ) {
         if ( _.has( err.response, 'data.RemoteException' ) ) 
-            throw new HDFSError( data );
+            throw new HDFSError( err.response.data );
         else 
             throw new ResponseError( `Got unexpected status code for ${url}: ${res.statusCode}` );
     }

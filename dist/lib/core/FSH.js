@@ -36,7 +36,7 @@ const fs = _bluebird2.default.promisifyAll(require('fs-extra'));
 
 const handleHDFSError = err => {
     if (err.response) {
-        if (_lodash2.default.has(err.response, 'data.RemoteException')) throw new _errors.HDFSError(data);else throw new _errors.ResponseError(`Got unexpected status code for ${ url }: ${ res.statusCode }`);
+        if (_lodash2.default.has(err.response, 'data.RemoteException')) throw new _errors.HDFSError(err.response.data);else throw new _errors.ResponseError(`Got unexpected status code for ${ url }: ${ res.statusCode }`);
     }
     throw err;
 };

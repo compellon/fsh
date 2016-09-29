@@ -22,8 +22,8 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
     let uri = new URI( pathOrUri );
     const protocol = uri.protocol();
 
-    if ( !protocol )
-        uri = new URI({ protocol, path: pathOrUri });
+    if ( !protocol || protocol === 'file' )
+        uri = new URI({ protocol: 'file', path: uri.path() });
 
     if ( !_.includes( validProtocols, protocol ) )
         throw new ValidationError( `Unsupported protocol [${protocol}].` );
@@ -61,7 +61,7 @@ export default class FSH {
     mkdir( path, mode = 0o755 ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.ensureDirAsync( uri.path(), mode ) :
+            fs.ensureDirAsync( uri.path(true), mode ) :
             self._sendRequest( 'put', 'MKDIRS', uri, { permissions: mode } ).then( res => res.data )
         );
     }
@@ -69,7 +69,7 @@ export default class FSH {
     chmod( path, mode = 0o755 ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.chmodAsync( uri.path(), mode ) :
+            fs.chmodAsync( uri.path(true), mode ) :
             self._sendRequest( 'put', 'SETPERMISSION', uri, { permissions: mode } ).then( res => res.data )
         );
     }
@@ -77,7 +77,7 @@ export default class FSH {
     chown( path, owner, group ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.chownAsync( uri.path(), owner, group ) :
+            fs.chownAsync( uri.path(true), owner, group ) :
             self._sendRequest( 'put', 'SETOWNER', uri, { owner, group } ).then( res => res.data )
         );
     }
@@ -85,7 +85,7 @@ export default class FSH {
     readdir( path ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.readdirAsync( path, null ) :
+            fs.readdirAsync( uri.path(true), null ) :
             self._sendRequest( 'get', 'LISTSTATUS', uri ).then( res => res.data.FileStatuses.FileStatus )
         );
     }
@@ -95,7 +95,7 @@ export default class FSH {
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
             .spread( ( srcURI, destURI ) => {
                 if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' )
-                    return fs.copyAsync( srcURI.path(), destURI.path() );
+                    return fs.copyAsync( srcURI.path(true), destURI.path(true) );
                 else if ( srcURI.protocol() === 'hdfs' && destURI.protocol() !== 'hdfs' )
                     return self.copyToLocal( path, destination );
                 else if ( srcURI.protocol() !== 'hdfs' && destURI.protocol() === 'hdfs' )
@@ -119,8 +119,8 @@ export default class FSH {
                 if ( srcUri.hostname() ) conn.host = srcUri.hostname(); 
                 const hdfs = WebHDFS.createClient( conn );
 
-                const remoteFileStream = hdfs.createReadStream( srcUri.path() );
-                const localFileStream = fs.createWriteStream( destUri.path() );
+                const remoteFileStream = hdfs.createReadStream( srcUri.path(true) );
+                const localFileStream = fs.createWriteStream( destUri.path(true) );
 
                 return new Promise( ( resolve, reject ) => {
                     remoteFileStream.pipe( localFileStream );
@@ -146,8 +146,8 @@ export default class FSH {
                 if ( srcUri.hostname() ) conn.host = srcUri.hostname();
                 const hdfs = WebHDFS.createClient( conn );
             
-                const localFileStream = fs.createReadStream( srcUri.path() );
-                const remoteFileStream = hdfs.createWriteStream( destUri.path() );
+                const localFileStream = fs.createReadStream( srcUri.path(true) );
+                const remoteFileStream = hdfs.createWriteStream( destUri.path(true) );
                 
                 return new Promise( ( resolve, reject ) => {
                     localFileStream.pipe( remoteFileStream );
@@ -169,7 +169,7 @@ export default class FSH {
         return Promise.all([ validateUri( path ), validateUri( destination ) ])
             .spread( ( srcUri, destURI ) => {
                 if ( srcUri.protocol() !== 'hdfs' && destURI.protocol() !== 'hdfs' ) {
-                    return fs.moveAsync( srcUri.path(), destURI.path() );
+                    return fs.moveAsync( srcUri.path(true), destURI.path(true) );
                 } else {
                     return self.copy( path, destination ).then( () => self.remove( path ) );
                 }
@@ -179,7 +179,7 @@ export default class FSH {
     unlink( path, recursive = null) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.unlinkAsync( uri.path() ) :
+            fs.unlinkAsync( uri.path(true) ) :
             self._sendRequest( 'delete', 'DELETE', uri, { recursive } ).then( res => res.data )
         );
     }
@@ -187,7 +187,7 @@ export default class FSH {
     remove( path ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.removeAsync( uri.path() ) :
+            fs.removeAsync( uri.path(true) ) :
             self.unlink( path, true )
         );
     }
@@ -195,7 +195,7 @@ export default class FSH {
     stat( path ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.statAsync( uri.path() ) :
+            fs.statAsync( uri.path(true) ) :
             self._sendRequest( 'get', 'GETFILESTATUS', uri ).then( res => res.data.FileStatus )
         );
     }
@@ -208,7 +208,7 @@ export default class FSH {
             if (typeof json !== 'object')
                 throw new ValidationError('Input must be an object. Try using writeFile instead or convert to an object.');
 
-            if ( !useHDFS ) return fs.writeJsonAsync( path, json, opts );
+            if ( !useHDFS ) return fs.writeJsonAsync( uri.path(true), json, opts );
             
             return self.writeFile( path, JSON.stringify( json ), opts );
         });
@@ -217,7 +217,7 @@ export default class FSH {
     writeFile( path, data, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.writeFileAsync( uri.path(), data, opts ) :
+            fs.writeFileAsync( uri.path(true), data, opts ) :
             self._sendRequest( 'put', 'CREATE', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'put', data } ) )
@@ -229,7 +229,7 @@ export default class FSH {
     appendFile( path, data, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.appendFileAsync( uri.path(), data, opts ) :
+            fs.appendFileAsync( uri.path(true), data, opts ) :
             self._sendRequest( 'post', 'APPEND', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'post', data } ) )
@@ -241,7 +241,7 @@ export default class FSH {
     readFile( path, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.readFileAsync( uri.path(), opts ) :
+            fs.readFileAsync( uri.path(true), opts ) :
             self._sendRequest( 'get', 'OPEN', uri, opts )
                 .then( res => res.headers.location )
                 .then( url => axios.request( { url, method: 'get' } ) )
@@ -253,7 +253,7 @@ export default class FSH {
     readJson( path, opts = {} ) {
         const self = this;
         return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.readJsonAsync( uri.path(), opts ) :
+            fs.readJsonAsync( uri.path(true), opts ) :
             this.readFile( path, opts).then( JSON.stringify )
         );
     }

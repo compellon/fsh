@@ -20,7 +20,7 @@ const handleHDFSError = err => {
 
 const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Promise.try( () => {
 
-    let uri = new URI( uriString );
+    let uri = new URI( pathOrUri );
     if ( !uri.protocol() ) {
         uri = uri.protocol('file');
     }
@@ -29,7 +29,7 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
     if ( !finalURIString.test(/.*\:\/\/.*/) ) {
         finalURIString = finalURIString.replace(':', '://');
     }
-    
+
     uri = URI( finalURIString );
 
     if ( !_.includes( validProtocols, protocol ) )

@@ -43,7 +43,7 @@ const handleHDFSError = err => {
 
 const validateUri = (pathOrUri, validProtocols = ['hdfs', 'file', '']) => _bluebird2.default.try(() => {
 
-    let uri = new _urijs2.default(uriString);
+    let uri = new _urijs2.default(pathOrUri);
     if (!uri.protocol()) {
         uri = uri.protocol('file');
     }

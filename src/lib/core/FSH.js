@@ -19,11 +19,18 @@ const handleHDFSError = err => {
 };
 
 const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Promise.try( () => {
-    let uri = new URI( pathOrUri );
-    const protocol = uri.protocol();
 
-    if ( !protocol || protocol === 'file' )
-        uri = new URI({ protocol: 'file', path: uri.path() });
+    let uri = new URI( uriString );
+    if ( !uri.protocol() ) {
+        uri = uri.protocol('file');
+    }
+
+    let finalURIString = uri.toString();    
+    if ( !finalURIString.test(/.*\:\/\/.*/) ) {
+        finalURIString = finalURIString.replace(':', '://');
+    }
+    
+    uri = URI( finalURIString );
 
     if ( !_.includes( validProtocols, protocol ) )
         throw new ValidationError( `Unsupported protocol [${protocol}].` );

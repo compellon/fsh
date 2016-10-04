@@ -42,10 +42,18 @@ const handleHDFSError = err => {
 };
 
 const validateUri = (pathOrUri, validProtocols = ['hdfs', 'file', '']) => _bluebird2.default.try(() => {
-    let uri = new _urijs2.default(pathOrUri);
-    const protocol = uri.protocol();
 
-    if (!protocol || protocol === 'file') uri = new _urijs2.default({ protocol: 'file', path: uri.path() });
+    let uri = new _urijs2.default(uriString);
+    if (!uri.protocol()) {
+        uri = uri.protocol('file');
+    }
+
+    let finalURIString = uri.toString();
+    if (!finalURIString.test(/.*\:\/\/.*/)) {
+        finalURIString = finalURIString.replace(':', '://');
+    }
+
+    uri = (0, _urijs2.default)(finalURIString);
 
     if (!_lodash2.default.includes(validProtocols, protocol)) throw new _errors.ValidationError(`Unsupported protocol [${ protocol }].`);
 

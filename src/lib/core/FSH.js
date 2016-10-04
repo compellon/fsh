@@ -26,7 +26,7 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
     }
 
     let finalURIString = uri.toString();    
-    if ( !finalURIString.test(/.*\:\/\/.*/) ) {
+    if ( !/.*\:\/\/.*/.test(finalURIString) ) {
         finalURIString = finalURIString.replace(':', '://');
     }
 

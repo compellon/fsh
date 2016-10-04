@@ -55,7 +55,7 @@ const validateUri = (pathOrUri, validProtocols = ['hdfs', 'file', '']) => _blueb
 
     uri = (0, _urijs2.default)(finalURIString);
 
-    if (!_lodash2.default.includes(validProtocols, protocol)) throw new _errors.ValidationError(`Unsupported protocol [${ protocol }].`);
+    if (!_lodash2.default.includes(validProtocols, uri.protocol())) throw new _errors.ValidationError(`Unsupported protocol [${ uri.protocol() }].`);
 
     return uri;
 });

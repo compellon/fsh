@@ -32,8 +32,8 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
 
     uri = URI( finalURIString );
 
-    if ( !_.includes( validProtocols, protocol ) )
-        throw new ValidationError( `Unsupported protocol [${protocol}].` );
+    if ( !_.includes( validProtocols, uri.protocol() ) )
+        throw new ValidationError( `Unsupported protocol [${uri.protocol()}].` );
 
     return uri;
 });

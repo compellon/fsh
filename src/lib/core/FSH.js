@@ -5,6 +5,7 @@ import URI  from 'urijs';
 import { HDFSError, ValidationError, ResponseError } from './errors';
 import WebHDFS from 'webhdfs';
 import os from 'os';
+import path from 'path';
 
 const fs = Promise.promisifyAll( require('fs-extra') );
 
@@ -19,8 +20,12 @@ const handleHDFSError = err => {
 };
 
 const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Promise.try( () => {
-
     let uri = new URI( pathOrUri );
+
+    if ( !path.isAbsolute( uri.path() ) ) {
+        uri = uri.absoluteTo( process.cwd() );
+    }
+
     if ( !uri.protocol() ) {
         uri = uri.protocol('file');
     }

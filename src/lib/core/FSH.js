@@ -23,7 +23,7 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
     let uri = new URI( pathOrUri );
 
     if ( !path.isAbsolute( uri.path() ) ) {
-        uri = uri.absoluteTo( process.cwd() );
+        uri = new URI( path.resolve( process.cwd(), uri.path() ) );
     }
 
     if ( !uri.protocol() ) {

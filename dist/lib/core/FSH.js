@@ -49,7 +49,7 @@ const validateUri = (pathOrUri, validProtocols = ['hdfs', 'file', '']) => _blueb
     let uri = new _urijs2.default(pathOrUri);
 
     if (!_path2.default.isAbsolute(uri.path())) {
-        uri = uri.absoluteTo(process.cwd());
+        uri = new _urijs2.default(_path2.default.resolve(process.cwd(), uri.path()));
     }
 
     if (!uri.protocol()) {

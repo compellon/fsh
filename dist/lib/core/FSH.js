@@ -76,7 +76,7 @@ class FSH {
         this.client = _axios2.default.create();
         this.client.defaults.baseURL = this.baseURI.toString();
         this.client.defaults.maxRedirects = 0;
-        this.client.validateStatus = status => status >= 200 && status < 400;
+        this.client.defaults.validateStatus = status => status >= 200 && status < 400;
     }
 
     _constructURL(path, op, params = {}) {

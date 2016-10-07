@@ -11,9 +11,9 @@ const fs = Promise.promisifyAll( require('fs-extra') );
 
 const handleHDFSError = err => {
     if ( err.response ) {
-        if ( _.has( err.response, 'data.RemoteException' ) ) 
+        if ( _.has( err.response, 'data.RemoteException' ) )
             throw new HDFSError( err.response.data );
-        else 
+        else
             throw new ResponseError( `Got unexpected status code for ${url}: ${res.statusCode}` );
     }
     throw err;
@@ -30,7 +30,7 @@ const validateUri = ( pathOrUri, validProtocols = [ 'hdfs', 'file', '' ] ) => Pr
         uri = uri.protocol('file');
     }
 
-    let finalURIString = uri.toString();    
+    let finalURIString = uri.toString();
     if ( !/.*\:\/\/.*/.test(finalURIString) ) {
         finalURIString = finalURIString.replace(':', '://');
     }
@@ -51,6 +51,7 @@ export default class FSH {
         this.client = axios.create();
         this.client.defaults.baseURL = this.baseURI.toString();
         this.client.defaults.maxRedirects = 0;
+        this.client.validateStatus = status => status >= 200 && status < 400;
     }
 
     _constructURL( path, op, params = {} ) {
@@ -128,7 +129,7 @@ export default class FSH {
         return Promise.all([ validateUri( hdfsSrc, [ 'hdfs' ] ), validateUri( destination, [ 'file', '' ] ) ] )
             .spread( ( srcUri, destUri ) => {
                 const conn = _.omit( this.conn, 'hostname' );
-                if ( srcUri.hostname() ) conn.host = srcUri.hostname(); 
+                if ( srcUri.hostname() ) conn.host = srcUri.hostname();
                 const hdfs = WebHDFS.createClient( conn );
 
                 const remoteFileStream = hdfs.createReadStream( srcUri.path(true) );
@@ -149,7 +150,7 @@ export default class FSH {
             });
     }
 
-    // TODO: implement without webhdfs lib 
+    // TODO: implement without webhdfs lib
     copyFromLocal( path, hdfsDestination ) {
         const self = this;
         return Promise.all([ validateUri( path, ['file', ''] ), validateUri( hdfsDestination, [ 'hdfs' ] ) ])
@@ -157,10 +158,10 @@ export default class FSH {
                 const conn = _.omit( this.conn, 'hostname' );
                 if ( srcUri.hostname() ) conn.host = srcUri.hostname();
                 const hdfs = WebHDFS.createClient( conn );
-            
+
                 const localFileStream = fs.createReadStream( srcUri.path(true) );
                 const remoteFileStream = hdfs.createWriteStream( destUri.path(true) );
-                
+
                 return new Promise( ( resolve, reject ) => {
                     localFileStream.pipe( remoteFileStream );
 
@@ -221,7 +222,7 @@ export default class FSH {
                 throw new ValidationError('Input must be an object. Try using writeFile instead or convert to an object.');
 
             if ( !useHDFS ) return fs.writeJsonAsync( uri.path(true), json, opts );
-            
+
             return self.writeFile( path, JSON.stringify( json ), opts );
         });
     }

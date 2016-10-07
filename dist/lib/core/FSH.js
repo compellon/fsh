@@ -76,6 +76,7 @@ class FSH {
         this.client = _axios2.default.create();
         this.client.defaults.baseURL = this.baseURI.toString();
         this.client.defaults.maxRedirects = 0;
+        this.client.validateStatus = status => status >= 200 && status < 400;
     }
 
     _constructURL(path, op, params = {}) {
@@ -153,7 +154,7 @@ class FSH {
         });
     }
 
-    // TODO: implement without webhdfs lib 
+    // TODO: implement without webhdfs lib
     copyFromLocal(path, hdfsDestination) {
         const self = this;
         return _bluebird2.default.all([validateUri(path, ['file', '']), validateUri(hdfsDestination, ['hdfs'])]).spread((srcUri, destUri) => {

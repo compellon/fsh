@@ -1,0 +1,46 @@
+{
+  "name": "fsh",
+  "version": "0.0.1",
+  "description": "Library to interact with the WEBHDFS REST API",
+  "main": "dist/lib/fsh.js",
+  "scripts": {
+    "build": "npm update && node_modules/.bin/babel src/ -d dist/ --copy-files --source-maps --presets node6",
+    "clean": "rm -rf dist/",
+    "lint": "node_modules/.bin/eslint src/*.js test/*.js",
+    "test": "npm run lint && npm run build && node_modules/.bin/mocha --reporter nyan --check-leaks --require source-map-support/register dist/test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ezra-quemuel/fsh.git"
+  },
+  "keywords": [
+    "hadoop",
+    "webhdfs",
+    "hdfs"
+  ],
+  "author": "Ezra Quemuel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ezra-quemuel/fsh/issues"
+  },
+  "homepage": "https://github.com/ezra-quemuel/fsh#readme",
+  "dependencies": {
+    "axios": "0.15.3",
+    "bluebird": "^3.4.6",
+    "fs-extra": "^0.30.0",
+    "lodash": "^4.13.1",
+    "node-uuid": "^1.4.7",
+    "source-map-support": "^0.4.2",
+    "urijs": "^1.18.1",
+    "webhdfs": "^0.3.0"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.14.0",
+    "babel-preset-node6": "^11.0.0",
+    "chai": "^3.5.0",
+    "colors": "^1.1.2",
+    "eslint": "^3.5.0",
+    "mocha": "^3.0.2",
+    "supertest": "^2.0.0"
+  }
+}

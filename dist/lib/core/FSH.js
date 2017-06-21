@@ -40,7 +40,7 @@ const fs = _bluebird2.default.promisifyAll(require('fs-extra'));
 
 const handleHDFSError = err => {
     if (err.response) {
-        if (_lodash2.default.has(err.response, 'data.RemoteException')) throw new _errors.HDFSError(err.response.data);else throw new _errors.ResponseError(`Got unexpected status code for ${ url }: ${ res.statusCode }`);
+        if (_lodash2.default.has(err.response, 'data.RemoteException')) throw new _errors.HDFSError(err.response.data);else throw new _errors.ResponseError(`Got unexpected status code for ${url}: ${res.statusCode}`);
     }
     throw err;
 };
@@ -63,7 +63,7 @@ const validateUri = (pathOrUri, validProtocols = ['hdfs', 'file', '']) => _blueb
 
     uri = (0, _urijs2.default)(finalURIString);
 
-    if (!_lodash2.default.includes(validProtocols, uri.protocol())) throw new _errors.ValidationError(`Unsupported protocol [${ uri.protocol() }].`);
+    if (!_lodash2.default.includes(validProtocols, uri.protocol())) throw new _errors.ValidationError(`Unsupported protocol [${uri.protocol()}].`);
 
     return uri;
 });
@@ -92,6 +92,7 @@ class FSH {
 
         if (uri.hostname()) opts.baseURL = new _urijs2.default(this.baseURI).hostname(uri.hostname()).toString();
 
+        console.log('_sendRequest: returning this.client.request');
         return this.client.request(opts).catch(handleHDFSError);
     }
 
@@ -122,7 +123,7 @@ class FSH {
                 const tmpDir = _os2.default.tmpdir();
                 const timestamp = new Date().getTime();
                 // TODO: replace with guids?
-                const tmpFile = `${ tmpDir }/${ timestamp }`;
+                const tmpFile = `${tmpDir}/${timestamp}`;
 
                 return self.copyToLocal(path, tmpFile).then(() => self.copyFromLocal(tmpFile, destination));
             }
@@ -208,20 +209,28 @@ class FSH {
 
     writeJson(path, json, opts = {}) {
         const self = this;
+        console.log('writeJson: validating URI');
         return validateUri(path).then(uri => {
             const useHDFS = uri.protocol() === 'hdfs';
 
             if (typeof json !== 'object') throw new _errors.ValidationError('Input must be an object. Try using writeFile instead or convert to an object.');
 
             if (!useHDFS) return fs.writeJsonAsync(uri.path(true), json, opts);
-
+            console.log('writeJson: calling self.writeFile');
             return self.writeFile(path, JSON.stringify(json), opts);
         });
     }
 
     writeFile(path, data, opts = {}) {
         const self = this;
-        return validateUri(path).then(uri => uri.protocol() !== 'hdfs' ? fs.writeFileAsync(uri.path(true), data, opts) : self._sendRequest('put', 'CREATE', uri, opts).then(res => res.headers.location).then(url => _axios2.default.request({ url, method: 'put', data })).then(res => res.data).catch(err => handleHDFSError));
+        console.log('writeFile: calling validateUri then self._sendRequest');
+        return validateUri(path).then(uri => uri.protocol() !== 'hdfs' ? fs.writeFileAsync(uri.path(true), data, opts) : self._sendRequest('put', 'CREATE', uri, opts).then(res => res.headers.location).then(url => {
+            console.log('writeFile: sending axios.request to the location received from _sendRequest');
+            return _axios2.default.request({ url, method: 'put', data });
+        }).then(res => {
+            console.log('writeFile: operation complete, returning data.');
+            return res.data;
+        }).catch(err => handleHDFSError));
     }
 
     appendFile(path, data, opts = {}) {

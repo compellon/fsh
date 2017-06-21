@@ -32,7 +32,7 @@
     "node-uuid": "^1.4.7",
     "source-map-support": "^0.4.2",
     "urijs": "^1.18.1",
-    "webhdfs": "^0.3.0"
+    "webhdfs": "1.1.1"
   },
   "devDependencies": {
     "babel-cli": "^6.14.0",

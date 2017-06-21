@@ -82,13 +82,13 @@ const webHDFSServer = (0, _supertest2.default)('http://127.0.0.1:50070/webhdfs/v
 const TEST_DIR = _path2.default.join('fsh', _nodeUuid2.default.v4());
 const LOCAL_TEST_DIR = _path2.default.join(_os2.default.tmpdir(), TEST_DIR);
 const LOCAL_TEST_DIR_URI = new _urijs2.default(LOCAL_TEST_DIR).scheme('file').toString();
-const HDFS_TEST_DIR_URI = new _urijs2.default({ protocol: 'hdfs', hostname: '127.0.0.1', port: 9000, path: `/tmp/${ TEST_DIR }` }).toString();
-const WEBHDFS_TEST_DIR_URI = new _urijs2.default({ protocol: 'webhdfs', hostname: '127.0.0.1', port: 1234, path: `/webhdfs/v1/tmp/${ TEST_DIR }` }).toString();
+const HDFS_TEST_DIR_URI = new _urijs2.default({ protocol: 'hdfs', hostname: '127.0.0.1', port: 9000, path: `/tmp/${TEST_DIR}` }).toString();
+const WEBHDFS_TEST_DIR_URI = new _urijs2.default({ protocol: 'webhdfs', hostname: '127.0.0.1', port: 1234, path: `/webhdfs/v1/tmp/${TEST_DIR}` }).toString();
 
-console.log(`Directory path to be used in local testing: ${ LOCAL_TEST_DIR.cyan }`.yellow);
-console.log(`Directory URI to be used in local testing: ${ LOCAL_TEST_DIR_URI.cyan }`.yellow);
-console.log(`Directory HDFS URI to be used in local testing: ${ HDFS_TEST_DIR_URI.cyan }`.yellow);
-console.log(`Directory WEBHDFS URI to be used in local testing: ${ WEBHDFS_TEST_DIR_URI.cyan }`.yellow);
+console.log(`Directory path to be used in local testing: ${LOCAL_TEST_DIR.cyan}`.yellow);
+console.log(`Directory URI to be used in local testing: ${LOCAL_TEST_DIR_URI.cyan}`.yellow);
+console.log(`Directory HDFS URI to be used in local testing: ${HDFS_TEST_DIR_URI.cyan}`.yellow);
+console.log(`Directory WEBHDFS URI to be used in local testing: ${WEBHDFS_TEST_DIR_URI.cyan}`.yellow);
 
 before(() => _fsExtra2.default.ensureDirSync(LOCAL_TEST_DIR));
 

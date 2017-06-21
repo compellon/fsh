@@ -68,6 +68,7 @@ export default class FSH {
         if ( uri.hostname() )
             opts.baseURL = new URI( this.baseURI ).hostname( uri.hostname() ).toString();
 
+        console.log('_sendRequest: returning this.client.request');
         return this.client.request( opts ).catch( handleHDFSError );
     }
 
@@ -215,6 +216,7 @@ export default class FSH {
 
     writeJson( path, json, opts = {} ) {
         const self = this;
+        console.log('writeJson: validating URI');
         return validateUri( path ).then( uri => {
             const useHDFS = uri.protocol() === 'hdfs';
 
@@ -222,20 +224,26 @@ export default class FSH {
                 throw new ValidationError('Input must be an object. Try using writeFile instead or convert to an object.');
 
             if ( !useHDFS ) return fs.writeJsonAsync( uri.path(true), json, opts );
-
+            console.log('writeJson: calling self.writeFile');
             return self.writeFile( path, JSON.stringify( json ), opts );
         });
     }
 
     writeFile( path, data, opts = {} ) {
         const self = this;
-        return validateUri( path ).then( uri => uri.protocol() !== 'hdfs' ?
-            fs.writeFileAsync( uri.path(true), data, opts ) :
-            self._sendRequest( 'put', 'CREATE', uri, opts )
-                .then( res => res.headers.location )
-                .then( url => axios.request( { url, method: 'put', data } ) )
-                .then( res => res.data )
-                .catch( err => handleHDFSError )
+        console.log('writeFile: calling validateUri then self._sendRequest');
+        return validateUri( path )
+            .then( uri => uri.protocol() !== 'hdfs' ? fs.writeFileAsync( uri.path(true), data, opts ) : self._sendRequest( 'put', 'CREATE', uri, opts )
+            .then( res => res.headers.location )
+            .then( url => {
+                console.log('writeFile: sending axios.request to the location received from _sendRequest');
+                return axios.request( { url, method: 'put', data } );
+            } )
+            .then( res => {
+                console.log('writeFile: operation complete, returning data.');
+                return res.data;
+            } )
+            .catch( err => handleHDFSError )
         );
     }
 

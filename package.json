@@ -31,7 +31,7 @@
     "lodash": "^4.13.1",
     "node-uuid": "^1.4.7",
     "source-map-support": "^0.4.2",
-    "urijs": "^1.18.1",
+    "urijs": "git+https://github.com/compellon/URI.js.git#fix-broken-encoding",
     "webhdfs": "^0.3.0"
   },
   "devDependencies": {
